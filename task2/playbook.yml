@@ -5,12 +5,12 @@
     - name: Update apt cache
       apt: update_cache=yes
 
-    - name: Install dependencies
+    - name: Install system dependencies
       apt:
-        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io, cri-tools]
+        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io]
         state: present
-    
-    - name: Download and Install crictl (required by K8s 1.35+)
+
+    - name: Download and Install crictl
       shell: |
         VERSION="v1.30.0"
         curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/${VERSION}/crictl-${VERSION}-linux-amd64.tar.gz --output crictl.tar.gz
@@ -40,8 +40,7 @@
       args:
         creates: /usr/local/bin/helm
 
-    - name: Fix Minikube permissions and start
+    - name: Start Minikube (None driver)
       shell: |
-        chmod +x /usr/local/bin/minikube
         minikube start --driver=none --listen-address=0.0.0.0 --force
       register: minikube_res
