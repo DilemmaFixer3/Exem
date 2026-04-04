@@ -3,11 +3,19 @@
   become: yes
   tasks:
     - name: Update apt cache
-      apt: update_cache=yes
+      apt:
+        update_cache: yes
 
     - name: Install system dependencies
       apt:
-        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io, wget]
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - conntrack
+          - socat
+          - docker.io
+          - wget
         state: present
 
     - name: Install CNI plugins
@@ -47,8 +55,37 @@
       args:
         creates: /usr/local/bin/helm
 
+    - name: Load required kernel modules
+      shell: |
+        modprobe overlay
+        modprobe br_netfilter
+
+    - name: Persist kernel modules on boot
+      copy:
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          overlay
+          br_netfilter
+
+    - name: Set required sysctl parameters
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { key: "net.bridge.bridge-nf-call-iptables",  value: "1" }
+        - { key: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+        - { key: "net.ipv4.ip_forward",                 value: "1" }
+
     - name: Start Minikube v1.28.3
       shell: |
         minikube delete || true
         rm -rf ~/.minikube
-        minikube start --driver=none --kubernetes-version=v1.28.3 --memory=1500mb --listen-address=0.0.0.0 --force
+        minikube start \
+          --driver=none \
+          --kubernetes-version=v1.28.3 \
+          --memory=1500mb \
+          --listen-address=0.0.0.0 \
+          --force \
+          --ignore-preflight-errors=FileContent--proc-sys-net-bridge-bridge-nf-call-iptables
