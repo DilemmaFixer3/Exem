@@ -5,7 +5,6 @@ terraform {
       version = "~> 2.0"
     }
   }
-
   backend "s3" {
     endpoint                    = "https://fra1.digitaloceanspaces.com"
     region                      = "us-east-1"
@@ -19,18 +18,21 @@ terraform {
   }
 }
 
+# Додаємо ключі безпосередньо в провайдер для створення бакета
 provider "digitalocean" {
-  # Токен автоматично підтягнеться з GitHub Secrets (DIGITALOCEAN_TOKEN)
+  spaces_access_id  = var.spaces_access_id
+  spaces_secret_key = var.spaces_secret_key
 }
 
-# 1. VPC: babiichuk-vpc
+variable "spaces_access_id" {}
+variable "spaces_secret_key" {}
+
 resource "digitalocean_vpc" "babiichuk_vpc" {
   name     = "babiichuk-vpc"
   region   = "fra1"
   ip_range = "10.10.10.0/24"
 }
 
-# 2. ВМ (Droplet): babiichuk-node
 resource "digitalocean_droplet" "babiichuk_node" {
   name     = "babiichuk-node"
   region   = "fra1"
@@ -39,7 +41,6 @@ resource "digitalocean_droplet" "babiichuk_node" {
   vpc_uuid = digitalocean_vpc.babiichuk_vpc.id
 }
 
-# 3. Firewall: babiichuk-firewall
 resource "digitalocean_firewall" "babiichuk_firewall" {
   name        = "babiichuk-firewall"
   droplet_ids = [digitalocean_droplet.babiichuk_node.id]
@@ -60,7 +61,6 @@ resource "digitalocean_firewall" "babiichuk_firewall" {
   }
 }
 
-# 4. Об'єктне сховище (Bucket): babiichuk-bucket
 resource "digitalocean_spaces_bucket" "babiichuk_bucket" {
   name   = "babiichuk-bucket"
   region = "fra1"
