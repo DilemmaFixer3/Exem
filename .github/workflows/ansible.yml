@@ -28,4 +28,5 @@ jobs:
       - name: Run Ansible Playbook
         working-directory: ./task2
         run: |
-          ansible-playbook playbook.yml -i inventory.ini -e "target_ip=${{ secrets.DROPLET_IP }}"
+          # Ми передаємо IP прямо в параметр -i з комою в кінці
+          ansible-playbook playbook.yml -i "${{ secrets.DROPLET_IP }}," -e "ansible_user=root"
