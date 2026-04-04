@@ -7,24 +7,32 @@
 
     - name: Install system dependencies
       apt:
-        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io]
+        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io, wget]
         state: present
 
-    - name: Add Kubernetes apt key
-      shell: curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    - name: Install CNI plugins
+      shell: |
+        mkdir -p /opt/cni/bin
+        curl -L "https://github.com/containernetworking/plugins/releases/download/v1.5.1/cni-plugins-linux-amd64-v1.5.1.tgz" | tar -C /opt/cni/bin -xz
       args:
-        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        creates: /opt/cni/bin/bridge
 
-    - name: Add Kubernetes repository
-      shell: echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+    - name: Install cri-dockerd
+      shell: |
+        VER=$(curl -s https://api.github.com/repos/Mirantis/cri-dockerd/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
+        curl -LO https://github.com/Mirantis/cri-dockerd/releases/download/v${VER}/cri-dockerd-${VER}.amd64.tgz
+        tar xzvf cri-dockerd-${VER}.amd64.tgz
+        install -o root -g root -m 0755 cri-dockerd/cri-dockerd /usr/local/bin/cri-dockerd
+        wget https://raw.githubusercontent.com/Mirantis/cri-dockerd/master/packaging/systemd/cri-docker.service
+        wget https://raw.githubusercontent.com/Mirantis/cri-dockerd/master/packaging/systemd/cri-docker.socket
+        sed -i -e 's,/usr/bin/cri-dockerd,/usr/local/bin/cri-dockerd,' cri-docker.service
+        install -o root -g root -m 0644 cri-docker.service /etc/systemd/system/
+        install -o root -g root -m 0644 cri-docker.socket /etc/systemd/system/
+        systemctl daemon-reload
+        systemctl enable --now cri-docker.socket
+        rm -rf cri-dockerd* cri-docker.service cri-docker.socket
       args:
-        creates: /etc/apt/sources.list.d/kubernetes.list
-
-    - name: Install kubelet kubeadm kubectl
-      apt:
-        name: [kubelet, kubeadm, kubectl]
-        state: present
-        update_cache: yes
+        creates: /usr/local/bin/cri-dockerd
 
     - name: Download and Install Minikube
       shell: |
@@ -39,9 +47,8 @@
       args:
         creates: /usr/local/bin/helm
 
-    - name: Bruteforce Clean and Start Minikube
+    - name: Start Minikube v1.28.3
       shell: |
         minikube delete || true
         rm -rf ~/.minikube
-        rm -rf /var/lib/minikube
-        minikube start --driver=none --kubernetes-version=v1.23.17 --listen-address=0.0.0.0 --force
+        minikube start --driver=none --kubernetes-version=v1.28.3 --memory=1500mb --listen-address=0.0.0.0 --force
