@@ -62,6 +62,5 @@
 
     - name: Start Minikube (None driver)
       shell: |
-        # Додаємо --memory=2048mb щоб не вилітало через брак пам'яті на вашому Droplet
         minikube start --driver=none --listen-address=0.0.0.0 --memory=2048mb --force
       register: minikube_res
