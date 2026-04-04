@@ -7,7 +7,7 @@
 
     - name: Install system dependencies
       apt:
-        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io]
+        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io, wget]
         state: present
 
     - name: Download and Install crictl
@@ -18,6 +18,26 @@
         rm -f crictl.tar.gz
       args:
         creates: /usr/local/bin/crictl
+
+    - name: Install cri-dockerd (Required for Docker + K8s 1.24+)
+      shell: |
+        VER=$(curl -s https://api.github.com/repos/Mirantis/cri-dockerd/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
+        curl -LO https://github.com/Mirantis/cri-dockerd/releases/download/v${VER}/cri-dockerd-${VER}.amd64.tgz
+        tar xzvf cri-dockerd-${VER}.amd64.tgz
+        install -o root -g root -m 0755 cri-dockerd/cri-dockerd /usr/local/bin/cri-dockerd
+        
+        wget https://raw.githubusercontent.com/Mirantis/cri-dockerd/master/packaging/systemd/cri-docker.service
+        wget https://raw.githubusercontent.com/Mirantis/cri-dockerd/master/packaging/systemd/cri-docker.socket
+        sed -i -e 's,/usr/bin/cri-dockerd,/usr/local/bin/cri-dockerd,' cri-docker.service
+        
+        install -o root -g root -m 0644 cri-docker.service /etc/systemd/system/
+        install -o root -g root -m 0644 cri-docker.socket /etc/systemd/system/
+        rm -rf cri-dockerd* cri-docker.service cri-docker.socket
+        
+        systemctl daemon-reload
+        systemctl enable --now cri-docker.socket
+      args:
+        creates: /usr/local/bin/cri-dockerd
 
     - name: Download and Install Minikube
       shell: |
@@ -42,5 +62,6 @@
 
     - name: Start Minikube (None driver)
       shell: |
-        minikube start --driver=none --listen-address=0.0.0.0 --force
+        # Додаємо --memory=2048mb щоб не вилітало через брак пам'яті на вашому Droplet
+        minikube start --driver=none --listen-address=0.0.0.0 --memory=2048mb --force
       register: minikube_res
