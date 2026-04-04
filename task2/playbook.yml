@@ -7,37 +7,8 @@
 
     - name: Install system dependencies
       apt:
-        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io, wget]
+        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io]
         state: present
-
-    - name: Download and Install crictl
-      shell: |
-        VERSION="v1.30.0"
-        curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/${VERSION}/crictl-${VERSION}-linux-amd64.tar.gz --output crictl.tar.gz
-        tar zxvf crictl.tar.gz -C /usr/local/bin
-        rm -f crictl.tar.gz
-      args:
-        creates: /usr/local/bin/crictl
-
-    - name: Install cri-dockerd (Required for Docker + K8s 1.24+)
-      shell: |
-        VER=$(curl -s https://api.github.com/repos/Mirantis/cri-dockerd/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
-        curl -LO https://github.com/Mirantis/cri-dockerd/releases/download/v${VER}/cri-dockerd-${VER}.amd64.tgz
-        tar xzvf cri-dockerd-${VER}.amd64.tgz
-        install -o root -g root -m 0755 cri-dockerd/cri-dockerd /usr/local/bin/cri-dockerd
-        
-        wget https://raw.githubusercontent.com/Mirantis/cri-dockerd/master/packaging/systemd/cri-docker.service
-        wget https://raw.githubusercontent.com/Mirantis/cri-dockerd/master/packaging/systemd/cri-docker.socket
-        sed -i -e 's,/usr/bin/cri-dockerd,/usr/local/bin/cri-dockerd,' cri-docker.service
-        
-        install -o root -g root -m 0644 cri-docker.service /etc/systemd/system/
-        install -o root -g root -m 0644 cri-docker.socket /etc/systemd/system/
-        rm -rf cri-dockerd* cri-docker.service cri-docker.socket
-        
-        systemctl daemon-reload
-        systemctl enable --now cri-docker.socket
-      args:
-        creates: /usr/local/bin/cri-dockerd
 
     - name: Download and Install Minikube
       shell: |
@@ -47,9 +18,9 @@
       args:
         creates: /usr/local/bin/minikube
 
-    - name: Download and Install kubectl
+    - name: Download and Install kubectl (Fixed version)
       shell: |
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        curl -LO "https://dl.k8s.io/release/v1.23.17/bin/linux/amd64/kubectl"
         install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
         rm kubectl
       args:
@@ -60,7 +31,8 @@
       args:
         creates: /usr/local/bin/helm
 
-    - name: Start Minikube (None driver)
+    - name: Force Clean and Start Minikube (Stable K8s v1.23.17)
       shell: |
-        minikube start --driver=none --listen-address=0.0.0.0 --memory=2048mb --force
+        minikube delete
+        minikube start --driver=none --kubernetes-version=v1.23.17 --listen-address=0.0.0.0 --force
       register: minikube_res
