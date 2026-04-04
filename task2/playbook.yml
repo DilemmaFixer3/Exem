@@ -9,6 +9,15 @@
       apt:
         name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io, cri-tools]
         state: present
+    
+    - name: Download and Install crictl (required by K8s 1.35+)
+      shell: |
+        VERSION="v1.30.0"
+        curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/${VERSION}/crictl-${VERSION}-linux-amd64.tar.gz --output crictl.tar.gz
+        tar zxvf crictl.tar.gz -C /usr/local/bin
+        rm -f crictl.tar.gz
+      args:
+        creates: /usr/local/bin/crictl
 
     - name: Download and Install Minikube
       shell: |
