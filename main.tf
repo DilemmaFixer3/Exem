@@ -19,16 +19,8 @@ terraform {
 }
 
 provider "digitalocean" {
-  # Використовуємо токен для API
-  token = var.do_token
-  # Використовуємо ключі для Spaces
-  spaces_access_id  = var.spaces_access_id
-  spaces_secret_key = var.spaces_secret_key
+  # Провайдер автоматично візьме токен і ключі зі змінних оточення в GitHub
 }
-
-variable "do_token" {}
-variable "spaces_access_id" {}
-variable "spaces_secret_key" {}
 
 resource "digitalocean_vpc" "babiichuk_vpc" {
   name     = "babiichuk-vpc"
@@ -65,7 +57,8 @@ resource "digitalocean_firewall" "babiichuk_firewall" {
 }
 
 resource "digitalocean_spaces_bucket" "babiichuk_bucket" {
-  name   = "babiichuk-bucket"
+  # Використовуємо максимально унікальну назву
+  name   = "babiichuk-final-bucket-2026"
   region = "fra1"
-  acl    = "private"
 }
+   
