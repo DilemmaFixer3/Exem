@@ -2,6 +2,8 @@ name: "DO Terraform CI/CD"
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'task1/**'
 jobs:
   terraform:
     runs-on: ubuntu-latest

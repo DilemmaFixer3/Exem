@@ -1,0 +1,31 @@
+name: "Ansible Deployment Task 2"
+
+on:
+  push:
+    paths:
+      - 'task2/**' # Запускати тільки якщо зміни в папці task2
+  workflow_dispatch: # Додає кнопку ручного запуску
+
+jobs:
+  ansible-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts
+
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      - name: Run Ansible Playbook
+        working-directory: ./task2
+        run: |
+          ansible-playbook playbook.yml -i inventory.ini -e "target_ip=${{ secrets.DROPLET_IP }}"
