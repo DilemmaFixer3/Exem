@@ -7,7 +7,7 @@
 
     - name: Install dependencies
       apt:
-        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io]
+        name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io, cri-tools]
         state: present
 
     - name: Download and Install Minikube
