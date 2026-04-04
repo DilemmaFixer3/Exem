@@ -10,30 +10,29 @@
         name: [apt-transport-https, ca-certificates, curl, conntrack, socat, docker.io]
         state: present
 
-    - name: Download Minikube binary
-      get_url:
-        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-        dest: /usr/local/bin/minikube
-        mode: '0755'
-
-    - name: Download kubectl binary
-      get_url:
-        url: "https://dl.k8s.io/release/stable.txt"
-        dest: /tmp/k8s_version.txt
-        mode: '0644'
-
-    - name: Install kubectl
+    - name: Download and Install Minikube
       shell: |
-        VERSION=$(cat /tmp/k8s_version.txt)
-        curl -LO "https://dl.k8s.io/release/${VERSION}/bin/linux/amd64/kubectl"
+        curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        install minikube /usr/local/bin/
+        rm minikube
+      args:
+        creates: /usr/local/bin/minikube
+
+    - name: Download and Install kubectl
+      shell: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
         install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+        rm kubectl
+      args:
+        creates: /usr/local/bin/kubectl
 
     - name: Install Helm
       shell: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
       args:
         creates: /usr/local/bin/helm
 
-    - name: Start Minikube (None driver for cloud VM)
-      shell: minikube start --driver=none --listen-address=0.0.0.0
+    - name: Fix Minikube permissions and start
+      shell: |
+        chmod +x /usr/local/bin/minikube
+        minikube start --driver=none --listen-address=0.0.0.0 --force
       register: minikube_res
-      changed_when: "'Done!' in minikube_res.stdout"
