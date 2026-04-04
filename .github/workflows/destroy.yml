@@ -1,0 +1,30 @@
+name: "DO Terraform Destroy"
+
+on:
+  workflow_dispatch: # Дозволяє запускати цей процес тільки вручну
+
+jobs:
+  terraform-destroy:
+    runs-on: ubuntu-latest
+    env:
+      # Ключі для Backend (щоб знайти tfstate)
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      
+      # Ключі для провайдера DigitalOcean (щоб видалити ресурси)
+      DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      SPACES_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      SPACES_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
