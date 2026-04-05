@@ -2,11 +2,8 @@ name: Task 3 - Deploy App to K8s
 
 on:
   push:
-    branches:
-      - main
-      - develop
-    tags:
-      - '1.0.0'
+    branches: [main, develop]
+    tags: ['1.0.0']
   workflow_dispatch: 
 
 jobs:
@@ -41,15 +38,16 @@ jobs:
           docker build -t ${{ secrets.DOCKER_USERNAME }}/my-app:${{ env.APP_VERSION }} .
           docker push ${{ secrets.DOCKER_USERNAME }}/my-app:${{ env.APP_VERSION }}
 
-      - name: Deploy via Ansible
-        uses: appleboy/ansible-github-action@v0.8.2
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
         with:
-          playbook: task3/deploy.yml
-          inventory: task2/inventory.ini
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
           host: ${{ secrets.DROPLET_IP }}
-          user: root
-          envs: |
-            DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-            APP_VERSION=${{ env.APP_VERSION }}
-            ENV_TYPE=${{ env.ENV_TYPE }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /root/Exem
+            git pull origin main
+            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            export APP_VERSION=${{ env.APP_VERSION }}
+            export ENV_TYPE=${{ env.ENV_TYPE }}
+            ansible-playbook -i task2/inventory.ini task3/deploy.yml
