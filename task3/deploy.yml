@@ -1,19 +1,26 @@
 - name: Deploy Application to Kubernetes
   hosts: all
   become: yes
-  vars:
-    docker_user: "{{ lookup('env', 'DOCKER_USERNAME') }}"
-    app_version: "{{ lookup('env', 'APP_VERSION') }}"
-    env_type: "{{ lookup('env', 'ENV_TYPE') }}" # dev або release
   tasks:
+    - name: Create directory for manifests on server
+      file:
+        path: /root/task3/k8s
+        state: directory
+        mode: '0755'
+
+    - name: Copy manifests from GitHub to Server
+      copy:
+        src: "k8s/{{ env_type }}.yaml"
+        dest: "/root/task3/k8s/{{ env_type }}.yaml"
+
     - name: Update manifest with correct image
       shell: |
-        sed -i "s|DOCKER_IMAGE_TAG|{{ docker_user }}/my-app:{{ app_version }}|g" task3/k8s/{{ env_type }}.yaml
+        sed -i "s|DOCKER_IMAGE_TAG|{{ docker_user }}/my-app:{{ app_version }}|g" /root/task3/k8s/{{ env_type }}.yaml
 
     - name: Apply Kubernetes manifest
-      shell: kubectl apply -f task3/k8s/{{ env_type }}.yaml
+      shell: kubectl apply -f /root/task3/k8s/{{ env_type }}.yaml
 
-    - name: Setup Port Forwarding for {{ env_type }}
+    - name: Setup Port Forwarding
       shell: |
         pkill -f "port-forward.*800{{ '2' if env_type == 'dev' else '3' }}" || true
         nohup kubectl port-forward --address 0.0.0.0 service/service-{{ env_type }} 800{{ '2' if env_type == 'dev' else '3' }}:80 > /dev/null 2>&1 &
