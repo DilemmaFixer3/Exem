@@ -1,6 +1,11 @@
 - name: Deploy Application to Kubernetes with Namespaces
   hosts: all
   become: yes
+  vars:
+    # Визначаємо порт тут, щоб не плутати Ansible всередині shell
+    app_port: "{{ '8002' if env_type == 'dev' else '8003' }}"
+    unit_name: "k8s-proxy-{{ '8002' if env_type == 'dev' else '8003' }}.service"
+
   tasks:
     - name: Ensure Namespace exists for {{ env_type }}
       shell: kubectl create namespace {{ env_type }} || true
@@ -26,26 +31,23 @@
     - name: Open Firewall ports via code
       ufw:
         rule: allow
-        port: "800{{ '2' if env_type == 'dev' else '3' }}"
+        port: "{{ app_port }}"
         proto: tcp
 
     - name: Setup Indestructible Port Forwarding via Systemd
       shell: |
-        PORT=800{{ '2' if env_type == 'dev' else '3' }}
-        UNIT="k8s-proxy-$PORT.service"
-        
-        # 1. Зупиняємо та очищуємо все, що пов'язано з цією службою
-        systemctl stop "$UNIT" || true
-        systemctl reset-failed "$UNIT" || true
-        rm -f /run/systemd/transient/"$UNIT" || true
+        # 1. Очищення старої служби
+        systemctl stop "{{ unit_name }}" || true
+        systemctl reset-failed "{{ unit_name }}" || true
+        rm -f /run/systemd/transient/"{{ unit_name }}" || true
         systemctl daemon-reload
         
-        # 2. Запускаємо службу заново
-        systemd-run --unit="k8s-proxy-$PORT" \
-          --description="K8s Port Forward for $PORT" \
+        # 2. Запуск нової служби
+        systemd-run --unit="k8s-proxy-{{ app_port }}" \
+          --description="K8s Port Forward for {{ app_port }}" \
           /usr/bin/kubectl port-forward \
           --address 0.0.0.0 \
-          service/service-{{ env_type }} $PORT:80 \
+          service/service-{{ env_type }} {{ app_port }}:80 \
           -n {{ env_type }}
       args:
         executable: /bin/bash
