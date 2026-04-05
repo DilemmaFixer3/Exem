@@ -27,12 +27,10 @@
 
     - name: Setup Indestructible Port Forwarding
       shell: |
-        # 1. Повне очищення
+        PORT="{{ app_port }}"
         systemctl stop "{{ unit_name }}" || true
         systemctl reset-failed "{{ unit_name }}" || true
         
-        # 2. Запуск з ПРЯМИМ вказанням KUBECONFIG
-        # Ми додаємо зміну оточення через --setenv
         systemd-run --unit="k8s-proxy-{{ app_port }}" \
           --setenv=KUBECONFIG=/root/.kube/config \
           --setenv=HOME=/root \
