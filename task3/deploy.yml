@@ -2,6 +2,9 @@
   hosts: all
   become: yes
   tasks:
+    - name: Ensure Namespace exists
+      shell: kubectl create namespace {{ env_type }} || true
+
     - name: Create directory for manifests on server
       file:
         path: /root/task3/k8s
@@ -20,9 +23,18 @@
     - name: Apply Kubernetes manifest
       shell: kubectl apply -f /root/task3/k8s/{{ env_type }}.yaml
 
-    - name: Setup Port Forwarding
+    - name: Setup Indestructible Port Forwarding
       shell: |
-        pkill -f "port-forward.*800{{ '2' if env_type == 'dev' else '3' }}" || true
-        nohup kubectl port-forward --address 0.0.0.0 service/service-{{ env_type }} 800{{ '2' if env_type == 'dev' else '3' }}:80 > /dev/null 2>&1 &
-      async: 10
-      poll: 0
+        PORT=800{{ '2' if env_type == 'dev' else '3' }}
+        # 1. Видаляємо стару тимчасову службу, якщо вона була
+        systemctl stop "k8s-proxy-$PORT" || true
+        
+        # 2. Запускаємо port-forward через systemd-run. 
+        # Це зробить процес повністю незалежним від Ansible.
+        systemd-run --unit="k8s-proxy-$PORT" \
+          /usr/bin/kubectl port-forward \
+          --address 0.0.0.0 \
+          service/service-{{ env_type }} $PORT:80 \
+          -n {{ env_type }}
+      args:
+        executable: /bin/bash
