@@ -42,12 +42,12 @@ jobs:
           docker push ${{ secrets.DOCKER_USERNAME }}/my-app:${{ env.APP_VERSION }}
 
       - name: Deploy via Ansible
-        uses: appleboy/ansible-playbook-docker-action@v2.0.0
+        uses: appleboy/ansible-github-action@v0.8.2
         with:
           playbook: task3/deploy.yml
           inventory: task2/inventory.ini
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          host: ${{ secrets.DROPLET_IP }} # ВИПРАВЛЕНО НА DROPLET_IP
+          host: ${{ secrets.DROPLET_IP }}
           user: root
           envs: |
             DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
