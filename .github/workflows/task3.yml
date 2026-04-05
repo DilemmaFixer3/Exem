@@ -3,10 +3,11 @@ name: Task 3 - Deploy App to K8s
 on:
   push:
     branches:
+      - main
       - develop
     tags:
       - '1.0.0'
-  workflow_dispatch: # Дозволяє запускати вручну для тестів
+  workflow_dispatch: 
 
 jobs:
   build-and-deploy:
@@ -35,18 +36,19 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
-          # Клонуємо репозиторій із застосунком
           git clone --branch ${{ env.BRANCH_OR_TAG }} https://github.com/YulianSalo/devops-exam-pt2.git app_repo
           cd app_repo
           docker build -t ${{ secrets.DOCKER_USERNAME }}/my-app:${{ env.APP_VERSION }} .
           docker push ${{ secrets.DOCKER_USERNAME }}/my-app:${{ env.APP_VERSION }}
 
       - name: Deploy via Ansible
-        uses: appleboy/ansible-action@master
+        uses: appleboy/ansible-playbook-docker-action@v2.0.0
         with:
           playbook: task3/deploy.yml
-          inventory: task2/inventory.ini # Використовуємо той самий сервер
+          inventory: task2/inventory.ini
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.DROPLET_IP }} # ВИПРАВЛЕНО НА DROPLET_IP
+          user: root
           envs: |
             DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
             APP_VERSION=${{ env.APP_VERSION }}
