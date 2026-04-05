@@ -1,4 +1,4 @@
-name: Task 3 - Deploy App to K8s
+name: Task 3 - Full Deploy App to K8s
 
 on:
   push:
@@ -19,24 +19,20 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Set Environment Variables
+      - name: Build and Push BOTH Images
         run: |
-          if [[ "${{ github.ref }}" == "refs/tags/1.0.0" ]]; then
-            echo "APP_VERSION=1.0.0" >> $GITHUB_ENV
-            echo "ENV_TYPE=release" >> $GITHUB_ENV
-            echo "BRANCH_OR_TAG=1.0.0" >> $GITHUB_ENV
-          else
-            echo "APP_VERSION=dev" >> $GITHUB_ENV
-            echo "ENV_TYPE=dev" >> $GITHUB_ENV
-            echo "BRANCH_OR_TAG=develop" >> $GITHUB_ENV
-          fi
+          # 1. Збірка DEV версії з гілки develop
+          git clone --branch develop https://github.com/YulianSalo/devops-exam-pt2.git app_dev
+          cd app_dev
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/my-app:dev .
+          docker push ${{ secrets.DOCKER_USERNAME }}/my-app:dev
+          cd ..
 
-      - name: Build and Push Docker Image
-        run: |
-          git clone --branch ${{ env.BRANCH_OR_TAG }} https://github.com/YulianSalo/devops-exam-pt2.git app_repo
-          cd app_repo
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/my-app:${{ env.APP_VERSION }} .
-          docker push ${{ secrets.DOCKER_USERNAME }}/my-app:${{ env.APP_VERSION }}
+          # 2. Збірка Release версії з тегу 1.0.0
+          git clone --branch 1.0.0 https://github.com/YulianSalo/devops-exam-pt2.git app_release
+          cd app_release
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/my-app:1.0.0 .
+          docker push ${{ secrets.DOCKER_USERNAME }}/my-app:1.0.0
 
       - name: Install Ansible
         run: |
@@ -50,13 +46,14 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts
 
-      - name: Run Ansible Playbook
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          APP_VERSION: ${{ env.APP_VERSION }}
-          ENV_TYPE: ${{ env.ENV_TYPE }}
-          DROPLET_IP: ${{ secrets.DROPLET_IP }}
+      - name: Deploy DEV environment (Port 8002)
         run: |
           ansible-playbook -i task2/inventory.ini task3/deploy.yml \
-            -e "target_host=$DROPLET_IP docker_user=$DOCKER_USERNAME app_version=$APP_VERSION env_type=$ENV_TYPE" \
+            -e "target_host=${{ secrets.DROPLET_IP }} docker_user=${{ secrets.DOCKER_USERNAME }} app_version=dev env_type=dev" \
+            --private-key ~/.ssh/id_rsa
+
+      - name: Deploy RELEASE environment (Port 8003)
+        run: |
+          ansible-playbook -i task2/inventory.ini task3/deploy.yml \
+            -e "target_host=${{ secrets.DROPLET_IP }} docker_user=${{ secrets.DOCKER_USERNAME }} app_version=1.0.0 env_type=release" \
             --private-key ~/.ssh/id_rsa
