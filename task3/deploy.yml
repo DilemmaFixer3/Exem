@@ -32,11 +32,17 @@
     - name: Setup Indestructible Port Forwarding via Systemd
       shell: |
         PORT=800{{ '2' if env_type == 'dev' else '3' }}
-        # Зупиняємо стару службу, якщо вона була
-        systemctl stop "k8s-proxy-$PORT" || true
+        UNIT="k8s-proxy-$PORT.service"
         
-        # Запускаємо як транзієнтну системну службу
+        # 1. Зупиняємо та очищуємо все, що пов'язано з цією службою
+        systemctl stop "$UNIT" || true
+        systemctl reset-failed "$UNIT" || true
+        rm -f /run/systemd/transient/"$UNIT" || true
+        systemctl daemon-reload
+        
+        # 2. Запускаємо службу заново
         systemd-run --unit="k8s-proxy-$PORT" \
+          --description="K8s Port Forward for $PORT" \
           /usr/bin/kubectl port-forward \
           --address 0.0.0.0 \
           service/service-{{ env_type }} $PORT:80 \
