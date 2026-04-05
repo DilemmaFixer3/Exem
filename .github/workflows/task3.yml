@@ -38,16 +38,24 @@ jobs:
           docker build -t ${{ secrets.DOCKER_USERNAME }}/my-app:${{ env.APP_VERSION }} .
           docker push ${{ secrets.DOCKER_USERNAME }}/my-app:${{ env.APP_VERSION }}
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.DROPLET_IP }}
-          username: root
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /root/Exem
-            git pull origin main
-            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-            export APP_VERSION=${{ env.APP_VERSION }}
-            export ENV_TYPE=${{ env.ENV_TYPE }}
-            ansible-playbook -i task2/inventory.ini task3/deploy.yml
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      - name: Write SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts
+
+      - name: Run Ansible Playbook
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          APP_VERSION: ${{ env.APP_VERSION }}
+          ENV_TYPE: ${{ env.ENV_TYPE }}
+        run: |
+          ansible-playbook -i task2/inventory.ini task3/deploy.yml \
+            -e "docker_user=$DOCKER_USERNAME app_version=$APP_VERSION env_type=$ENV_TYPE" \
+            --private-key ~/.ssh/id_rsa
