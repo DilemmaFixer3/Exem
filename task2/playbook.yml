@@ -91,7 +91,6 @@
         minikube start \
           --driver=none \
           --kubernetes-version=v1.28.3 \
-          --memory=1500mb \
+          --memory=2000mb \
           --listen-address=0.0.0.0 \
-          --force \
-          --extra-config=kubeadm.ignore-preflight-errors=all
+          --force
