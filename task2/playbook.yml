@@ -95,7 +95,21 @@
           --listen-address=0.0.0.0 \
           --force
 
-    - name: Start Kubernetes Proxy in background
-      shell: "nohup kubectl proxy --address='0.0.0.0' --accept-hosts='.*' --port=8001 > /dev/null 2>&1 &"
+    - name: Stop existing kubectl proxy
+      shell: pkill -f "kubectl proxy" || true
+      ignore_errors: yes
+
+    - name: Start Kubernetes Proxy (Automated)
+      shell: |
+        nohup kubectl proxy \
+          --address='0.0.0.0' \
+          --accept-hosts='.*' \
+          --port=8001 \
+          --disable-filter=true > /dev/null 2>&1 &
       async: 10
       poll: 0
+
+    - name: Wait for proxy to start
+      wait_for:
+        port: 8001
+        timeout: 30
