@@ -2,7 +2,6 @@
   hosts: all
   become: yes
   vars:
-    # Визначаємо порт тут, щоб не плутати Ansible всередині shell
     app_port: "{{ '8002' if env_type == 'dev' else '8003' }}"
     unit_name: "k8s-proxy-{{ '8002' if env_type == 'dev' else '8003' }}.service"
 
@@ -10,41 +9,33 @@
     - name: Ensure Namespace exists for {{ env_type }}
       shell: kubectl create namespace {{ env_type }} || true
 
-    - name: Create directory for manifests
-      file:
-        path: /root/task3/k8s
-        state: directory
-        mode: '0755'
-
-    - name: Copy manifests to server
+    - name: Copy manifests and Apply
       copy:
         src: "k8s/{{ env_type }}.yaml"
         dest: "/root/task3/k8s/{{ env_type }}.yaml"
 
-    - name: Update manifest with image
+    - name: Update and Apply manifest
       shell: |
         sed -i "s|DOCKER_IMAGE_TAG|{{ docker_user }}/my-app:{{ app_version }}|g" /root/task3/k8s/{{ env_type }}.yaml
+        kubectl apply -f /root/task3/k8s/{{ env_type }}.yaml -n {{ env_type }}
 
-    - name: Apply manifest to namespace
-      shell: kubectl apply -f /root/task3/k8s/{{ env_type }}.yaml -n {{ env_type }}
-
-    - name: Open Firewall ports via code
+    - name: Open Firewall ports
       ufw:
         rule: allow
         port: "{{ app_port }}"
         proto: tcp
 
-    - name: Setup Indestructible Port Forwarding via Systemd
+    - name: Setup Indestructible Port Forwarding
       shell: |
-        # 1. Очищення старої служби
+        # 1. Повне очищення
         systemctl stop "{{ unit_name }}" || true
         systemctl reset-failed "{{ unit_name }}" || true
-        rm -f /run/systemd/transient/"{{ unit_name }}" || true
-        systemctl daemon-reload
         
-        # 2. Запуск нової служби
+        # 2. Запуск з ПРЯМИМ вказанням KUBECONFIG
+        # Ми додаємо зміну оточення через --setenv
         systemd-run --unit="k8s-proxy-{{ app_port }}" \
-          --description="K8s Port Forward for {{ app_port }}" \
+          --setenv=KUBECONFIG=/root/.kube/config \
+          --setenv=HOME=/root \
           /usr/bin/kubectl port-forward \
           --address 0.0.0.0 \
           service/service-{{ env_type }} {{ app_port }}:80 \
